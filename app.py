@@ -1,7 +1,9 @@
 from flask import Flask, request, jsonify
 from database import db
 from models.meal import Meal
+from models.user import User
 from datetime import datetime
+from flask_migrate import Migrate
 from dotenv import load_dotenv
 import os
 
@@ -17,6 +19,9 @@ mysql_port = os.getenv("MYSQL_PORT")
 app = Flask(__name__)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{mysql_user}:{mysql_password}@{mysql_host}:{mysql_port}/{mysql_database}'
+
+# Implementing Migrate to modify your tables and preserve data
+migrate = Migrate(app, db)
 
 db.init_app(app)  
 
