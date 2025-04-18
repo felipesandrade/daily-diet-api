@@ -23,7 +23,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{mysql_user}:{mysql_pa
 # Implementing Migrate to modify your tables and preserve data
 migrate = Migrate(app, db)
 
-db.init_app(app)  
+db.init_app(app)
 
 @app.route('/meal', methods=['POST'])
 def create_meal():
