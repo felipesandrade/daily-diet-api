@@ -115,7 +115,17 @@ def update_meal(meal_id):
 
     db.session.commit()
     return jsonify({"message": "Refeição alterada com sucesso."}), 200
-    
+
+@app.route('/meal/<int:meal_id>', methods=['DELETE'])
+def delete_meal(meal_id):
+    meal = Meal.query.get(meal_id)
+
+    if meal:
+        db.session.delete(meal)
+        db.session.commit()
+        return jsonify({"message": "Refeição deletada com sucesso."})
+    return jsonify({"message": "Refeição não encontrada."})
+
 @app.route('/', methods=['GET'])
 def index():
     return "Daily Diet API"
