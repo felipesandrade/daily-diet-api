@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from database import db
 from models.meal import Meal
+from datetime import datetime
 from dotenv import load_dotenv
 import os
 
@@ -19,23 +20,33 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{mysql_user}:{mysql_pa
 
 db.init_app(app)  
 
-@app.route('/meal', methods=['PUT'])
+@app.route('/meal', methods=['POST'])
 def create_meal():
     data = request.json
-    name = data.get("name")
-    description = data.get("description")
-    date_time = data.get("date_time")
-    on_diet = data.get("on_diet")
 
-    if name and description and date_time:
+    if 'name'in data:
+        if not isinstance(data.get("name"), str) or not data.get("name").strip():
+            return jsonify({"erro": "Nome inválido."}), 400
+        name = data.get("name").strip()
+    if 'description' in data:
+        if not isinstance(data.get("description"), str) or not data.get("description").strip():
+            return jsonify({"erro": "Descrição inválida."}), 400
+        description = data.get("description").strip()
+    if 'date_time' in data:
+        date_time = data.get("date_time")
         try:
-            meal = Meal(name=name, description=description, date_time=date_time, on_diet=on_diet)
-            db.session.add(meal)
-            db.session.commit()
-            return jsonify({"message": "Refeição criada com sucesso."}), 201
-        except Exception as e:
-            return jsonify({"message": "Erro ao criar a refeição."}), 500   
-    return jsonify({"message": "Dados inválidos."}), 400
+            formatted_datetime = datetime.strptime(date_time, "%Y-%m-%d %H:%M:%S")
+        except ValueError: 
+            return jsonify({"erro": "Data e hora inválidos."}), 400
+    if 'on_diet' in data:
+        on_diet = data.get("on_diet") if data.get("on_diet") else False
+        if not isinstance(on_diet, bool):
+            return jsonify({"erro": "Na dieta inválido."}), 400
+
+    meal = Meal(name=name, description=description, date_time=formatted_datetime, on_diet=on_diet)
+    db.session.add(meal)
+    db.session.commit()
+    return jsonify({"message": "Refeição criada com sucesso."}), 201
 
 @app.route('/meal', methods=['GET'])
 def get_meals():
@@ -70,6 +81,40 @@ def get_meal(meal_id):
         }
         return jsonify(meal_data), 200
     return jsonify({"message": "Refeição não encontrada."}), 404
+
+@app.route('/meal/<int:meal_id>', methods=['PUT'])
+def update_meal(meal_id):
+    meal = Meal.query.get(meal_id)
+
+    if not meal:
+        return jsonify({"message": "Refeição não econtrada."}), 404
+        
+    data = request.json
+
+    if 'name' in data:
+        if not isinstance(data.get("name"), str) or not data.get("name").strip():
+            return jsonify({"erro": "Nome inválido."}), 400
+        meal.name = data.get("name").strip()
+
+    if 'description' in data:
+        if not isinstance(data.get("description"), str) or not data.get("description").strip():
+            return jsonify({"erro": "Descrição inválida."}), 400
+        meal.description = data.get("description").strip()
+    if 'date_time' in data:
+        date_time = data.get("date_time")
+        try:
+            formatted_datetime = datetime.strptime(date_time, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return jsonify({"erro": "Data e hora inválidos."}), 400
+        meal.date_time = formatted_datetime
+    if 'on_diet' in data:
+        on_diet = data.get("on_diet")
+        if not isinstance(on_diet, bool):
+            return jsonify({"erro": "Na diera inválida."}), 400
+        meal.on_diet = on_diet
+
+    db.session.commit()
+    return jsonify({"message": "Refeição alterada com sucesso."}), 200
     
 @app.route('/', methods=['GET'])
 def index():
