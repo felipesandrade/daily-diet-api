@@ -4,6 +4,7 @@ from models.meal import Meal
 from models.user import User
 from datetime import datetime
 from flask_migrate import Migrate
+from flask_login import LoginManager, login_user, current_user, login_required, logout_user
 from dotenv import load_dotenv
 import os
 import logging
@@ -11,7 +12,7 @@ import bcrypt
 
 load_dotenv()
 
-secret_key = os.getenv("SECRET_KEY")
+secret_key = os.getenv("FLASK_SECRET_KEY")
 mysql_user = os.getenv("MYSQL_USER")
 mysql_password = os.getenv("MYSQL_PASSWORD")
 mysql_database = os.getenv("MYSQL_DATABASE")
@@ -20,6 +21,7 @@ mysql_port = os.getenv("MYSQL_PORT")
 
 app = Flask(__name__)
 
+app.config['SECRET_KEY'] = secret_key
 app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{mysql_user}:{mysql_password}@{mysql_host}:{mysql_port}/{mysql_database}'
 
 # Implementing Migrate to modify your tables and preserve data
@@ -29,9 +31,50 @@ migrate = Migrate(app, db)
 logging.basicConfig()
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
+# Required for our application and Flask-Login work together.
+login_manager = LoginManager()
+
 db.init_app(app)
 
+# Config login_manager in application
+login_manager.init_app(app)
+# Default login route
+login_manager.login_view = 'login'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(user_id)
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    user_name = data.get("user_name")
+    password = data.get("password")
+
+    if user_name and password:
+        user = User.query.filter_by(user_name=user_name).first()
+
+        if user:
+            hashed_password = user.password.encode(encoding='utf-8')
+
+            if bcrypt.checkpw(str.encode(password), hashed_password):
+                # User authentication
+                login_user(user)
+                print(current_user.is_authenticated)
+                return jsonify({"message": F"Usuário {user.user_name} logado."}), 200
+        
+        return jsonify({"message": "Usuário e/ou senha inválidos."}), 400
+        
+    return jsonify({"message": "Dados inválidos."}), 400
+
+@app.route('/logout', methods=['GET'])
+@login_required
+def logout():
+    logout_user()
+    return jsonify({"message": "Logout do usuário efetuado com sucesso."}), 200
+
 @app.route('/user', methods=['POST'])
+@login_required
 def create_user():
     data = request.json
     user_name = data.get("user_name")
