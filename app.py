@@ -6,6 +6,8 @@ from datetime import datetime
 from flask_migrate import Migrate
 from dotenv import load_dotenv
 import os
+import logging
+import bcrypt
 
 load_dotenv()
 
@@ -23,6 +25,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{mysql_user}:{mysql_pa
 # Implementing Migrate to modify your tables and preserve data
 migrate = Migrate(app, db)
 
+# Enabling sql log in terminal
+logging.basicConfig()
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+
 db.init_app(app)
 
 @app.route('/user', methods=['POST'])
@@ -36,15 +42,16 @@ def create_user():
 
         if not user:
             if 'user_name' in data:
-                if not isinstance(user_name, str) and not user_name.strip():
+                if not isinstance(user_name, str) or not user_name.strip():
                     return jsonify({"erro": "Usuário inválido."}), 400
                 user_name = user_name.strip()
             if 'password' in data:
-                if not isinstance(password, str) and not password.strip():
+                if not isinstance(password, str) or not password.strip():
                     return jsonify({"erro": "Password inválida."}), 400
                 password = password.strip()
+                hashed_password = bcrypt.hashpw(str.encode(password), bcrypt.gensalt())
 
-            user = User(user_name=user_name, password=password, role="user")
+            user = User(user_name=user_name, password=hashed_password, role="user")
             db.session.add(user)
             db.session.commit()
             return jsonify({"message": "Usuário criado com sucesso."}), 201
@@ -53,6 +60,46 @@ def create_user():
     
     return jsonify({"message": "Dados inválidos."}), 400
 
+@app.route('/user', methods=['GET'])
+def get_users():
+    users = User.query.all()
+
+    if users:
+        users_list = []
+        for user in users:
+            users_list.append({
+                "id": user.id,
+                "user_name": user.user_name
+            })
+        return jsonify(users_list), 200
+
+    return jsonify({"message": "Usuários não encontrados."}), 400
+
+@app.route('/user/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    user = User.query.filter_by(id=user_id).first()
+
+    if user:
+        user_data = {
+            "id": user.id,
+            "user_name": user.user_name
+        } 
+
+        return jsonify(user_data), 200
+    
+    return jsonify({"message": "Usuário não encontrado."}), 400
+
+@app.route('/user/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    user = User.query.filter_by(id=user_id).first()
+
+    if user:
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({"message": "Usuário deletado com sucesso."}), 200
+    
+    return jsonify({"message": "Usuário não encontrado."}), 400
+    
 @app.route('/meal', methods=['POST'])
 def create_meal():
     data = request.json
@@ -134,29 +181,32 @@ def update_meal(meal_id):
     meal_date_time = data.get("meal_date_time")
     meal_on_diet = data.get("meal_on_diet")
 
+    if meal_name or meal_description or meal_date_time or meal_on_diet:
 
-    if 'meal_name' in data:
-        if not isinstance(meal_name, str) or not meal_name.strip():
-            return jsonify({"erro": "Nome inválido."}), 400
-        meal.meal_name = meal_name.strip()
+        if 'meal_name' in data:
+            if not isinstance(meal_name, str) or not meal_name.strip():
+                return jsonify({"erro": "Nome inválido."}), 400
+            meal.meal_name = meal_name.strip()
 
-    if 'meal_description' in data:
-        if not isinstance(meal_description, str) or not meal_description.strip():
-            return jsonify({"erro": "Descrição inválida."}), 400
-        meal.meal_description = meal_description.strip()
-    if 'meal_date_time' in data:
-        try:
-            formatted_meal_date_time = datetime.strptime(meal_date_time, "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            return jsonify({"erro": "Data e hora inválidos."}), 400
-        meal.meal_date_time = formatted_meal_date_time
-    if 'meal_on_diet' in data:
-        if not isinstance(meal_on_diet, bool):
-            return jsonify({"erro": "Na diera inválida."}), 400
-        meal.meal_on_diet = meal_on_diet
+        if 'meal_description' in data:
+            if not isinstance(meal_description, str) or not meal_description.strip():
+                return jsonify({"erro": "Descrição inválida."}), 400
+            meal.meal_description = meal_description.strip()
+        if 'meal_date_time' in data:
+            try:
+                formatted_meal_date_time = datetime.strptime(meal_date_time, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                return jsonify({"erro": "Data e hora inválidos."}), 400
+            meal.meal_date_time = formatted_meal_date_time
+        if 'meal_on_diet' in data:
+            if not isinstance(meal_on_diet, bool):
+                return jsonify({"erro": "Refeição na dieta inválida."}), 400
+            meal.meal_on_diet = meal_on_diet
 
-    db.session.commit()
-    return jsonify({"message": "Refeição alterada com sucesso."}), 200
+        db.session.commit()
+        return jsonify({"message": "Refeição alterada com sucesso."}), 200
+    
+    return jsonify({"message": "Dados inválidos."}), 400
 
 @app.route('/meal/<int:meal_id>', methods=['DELETE'])
 def delete_meal(meal_id):
