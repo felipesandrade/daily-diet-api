@@ -74,7 +74,6 @@ def logout():
     return jsonify({"message": "Logout do usuário efetuado com sucesso."}), 200
 
 @app.route('/user', methods=['POST'])
-@login_required
 def create_user():
     data = request.json
     user_name = data.get("user_name")
@@ -104,8 +103,12 @@ def create_user():
     return jsonify({"message": "Dados inválidos."}), 400
 
 @app.route('/user', methods=['GET'])
+@login_required
 def get_users():
     users = User.query.all()
+
+    if current_user.id != 18 and current_user.role != 'admin':
+        return jsonify({"message": "Operação não permitida."}), 403
 
     if users:
         users_list = []
@@ -119,8 +122,12 @@ def get_users():
     return jsonify({"message": "Usuários não encontrados."}), 400
 
 @app.route('/user/<int:user_id>', methods=['GET'])
+@login_required
 def get_user(user_id):
     user = User.query.filter_by(id=user_id).first()
+
+    if current_user.id != user.id or current_user.role != user.role:
+        return jsonify({"message": "Operação não permitida."}), 403
 
     if user:
         user_data = {
@@ -133,6 +140,7 @@ def get_user(user_id):
     return jsonify({"message": "Usuário não encontrado."}), 400
 
 @app.route('/user/<int:user_id>', methods=['DELETE'])
+@login_required
 def delete_user(user_id):
     user = User.query.filter_by(id=user_id).first()
 
@@ -144,6 +152,7 @@ def delete_user(user_id):
     return jsonify({"message": "Usuário não encontrado."}), 400
     
 @app.route('/meal', methods=['POST'])
+@login_required
 def create_meal():
     data = request.json
     meal_name = data.get("meal_name")
@@ -178,6 +187,7 @@ def create_meal():
     return jsonify({"message": "Dados inválidos."}), 400
 
 @app.route('/meal', methods=['GET'])
+@login_required
 def get_meals():
     meals = Meal.query.all()
 
@@ -196,6 +206,7 @@ def get_meals():
     return jsonify({"message": "Nenhuma refeição encontrada."}), 400
 
 @app.route('/meal/<int:meal_id>', methods=['GET'])
+@login_required
 def get_meal(meal_id):
     meal = Meal.query.get(meal_id)
 
@@ -212,6 +223,7 @@ def get_meal(meal_id):
     return jsonify({"message": "Refeição não encontrada."}), 404
 
 @app.route('/meal/<int:meal_id>', methods=['PUT'])
+@login_required
 def update_meal(meal_id):
     meal = Meal.query.get(meal_id)
 
@@ -252,6 +264,7 @@ def update_meal(meal_id):
     return jsonify({"message": "Dados inválidos."}), 400
 
 @app.route('/meal/<int:meal_id>', methods=['DELETE'])
+@login_required
 def delete_meal(meal_id):
     meal = Meal.query.get(meal_id)
 
