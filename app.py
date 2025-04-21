@@ -107,7 +107,7 @@ def create_user():
 def get_users():
     users = User.query.all()
 
-    if current_user.id != 18 and current_user.role != 'admin':
+    if current_user.id != 18 and current_user.role != "admin":
         return jsonify({"message": "Operação não permitida."}), 403
 
     if users:
@@ -126,7 +126,7 @@ def get_users():
 def get_user(user_id):
     user = User.query.filter_by(id=user_id).first()
 
-    if current_user.id != user.id or current_user.role != user.role:
+    if current_user.id != user_id and current_user.role == "user":
         return jsonify({"message": "Operação não permitida."}), 403
 
     if user:
@@ -143,13 +143,21 @@ def get_user(user_id):
 @login_required
 def delete_user(user_id):
     user = User.query.filter_by(id=user_id).first()
+    user_logged = current_user.id
 
-    if user:
-        db.session.delete(user)
-        db.session.commit()
-        return jsonify({"message": "Usuário deletado com sucesso."}), 200
+    if current_user.role != "admin":
+        return jsonify({"message": "Operação não permitida."}), 403
+
+    if user_logged != user_id:
+
+        if user:
+            db.session.delete(user)
+            db.session.commit()
+            return jsonify({"message": "Usuário deletado com sucesso."}), 200
     
-    return jsonify({"message": "Usuário não encontrado."}), 400
+        return jsonify({"message": "Usuário não encontrado."}), 400
+    
+    return jsonify({"message": "Não é possível deletar um usuário logado."}), 401
     
 @app.route('/meal', methods=['POST'])
 @login_required
@@ -179,7 +187,7 @@ def create_meal():
             if not isinstance(meal_on_diet, bool):
                 return jsonify({"erro": "Refeição na dieta inválido."}), 400
 
-        meal = Meal(meal_name=meal_name, meal_description=meal_description, meal_date_time=formatted_meal_date_time, meal_on_diet=meal_on_diet)
+        meal = Meal(meal_name=meal_name, meal_description=meal_description, meal_date_time=formatted_meal_date_time, meal_on_diet=meal_on_diet, user_id=current_user.id)
         db.session.add(meal)
         db.session.commit()
         return jsonify({"message": "Refeição criada com sucesso."}), 201
@@ -189,7 +197,7 @@ def create_meal():
 @app.route('/meal', methods=['GET'])
 @login_required
 def get_meals():
-    meals = Meal.query.all()
+    meals = Meal.query.filter_by(user_id=current_user.id).all()
 
     if meals:
         meals_list = []
@@ -208,7 +216,7 @@ def get_meals():
 @app.route('/meal/<int:meal_id>', methods=['GET'])
 @login_required
 def get_meal(meal_id):
-    meal = Meal.query.get(meal_id)
+    meal = Meal.query.filter_by(id=meal_id, user_id=current_user.id).first()
 
     if meal:
         formatted_meal_date_time = meal.meal_date_time.strftime("%Y-%m-%d %H:%M:%S")
@@ -225,7 +233,7 @@ def get_meal(meal_id):
 @app.route('/meal/<int:meal_id>', methods=['PUT'])
 @login_required
 def update_meal(meal_id):
-    meal = Meal.query.get(meal_id)
+    meal = Meal.query.filter_by(id=meal_id, user_id=current_user.id).first()
 
     if not meal:
         return jsonify({"message": "Refeição não econtrada."}), 404
@@ -266,7 +274,7 @@ def update_meal(meal_id):
 @app.route('/meal/<int:meal_id>', methods=['DELETE'])
 @login_required
 def delete_meal(meal_id):
-    meal = Meal.query.get(meal_id)
+    meal = Meal.query.filter_by(id=meal_id, user_id=current_user.id).first()
 
     if meal:
         db.session.delete(meal)

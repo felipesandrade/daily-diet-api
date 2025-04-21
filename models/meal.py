@@ -7,3 +7,6 @@ class Meal(db.Model, UserMixin):
     meal_description = db.Column(db.String(255), nullable=False)
     meal_date_time = db.Column(db.DateTime, nullable=False)
     meal_on_diet = db.Column(db.Boolean, nullable=False, default=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    user = db.relationship('User', backref='meal')
